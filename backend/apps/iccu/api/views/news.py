@@ -1,5 +1,7 @@
-import httpx
 from django.utils.translation import gettext as _
+
+import httpx
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import serializers
 from rest_framework.decorators import api_view
@@ -8,13 +10,14 @@ from rest_framework.response import Response
 from ...services import fetch_news, fetch_news_detail
 
 __all__ = (
-    "news_list",
-    "news_detail",
     "news_categories",
+    "news_detail",
+    "news_list",
 )
 
 
 @extend_schema(
+    operation_id="iccu_news_list",
     parameters=[
         OpenApiParameter(name="page", type=int, default=1),
         OpenApiParameter(name="lang", type=str, default="ru"),
@@ -25,6 +28,7 @@ __all__ = (
             description="1=Events, 2=Activities, 3=Visits, 5=Articles, 6=Media about us",
         ),
     ],
+    responses=OpenApiTypes.OBJECT,
 )
 # @extend_schema(
 #     parameters=[
@@ -64,9 +68,11 @@ def news_list(request):
 
 
 @extend_schema(
+    operation_id="iccu_news_detail",
     parameters=[
         OpenApiParameter(name="lang", type=str, default="ru"),
     ],
+    responses=OpenApiTypes.OBJECT,
 )
 @api_view(["GET"])
 def news_detail(request, news_id: int):

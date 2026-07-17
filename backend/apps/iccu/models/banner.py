@@ -29,11 +29,7 @@ class Banner(models.Model):
                 qs = qs.exclude(pk=self.pk)
             if qs.exists():
                 raise ValidationError(
-                    {
-                        "is_active": _(
-                            "Активный баннер уже существует. Сначала деактивируйте текущий."
-                        )
-                    }
+                    {"is_active": _("Активный баннер уже существует. Сначала деактивируйте текущий.")}
                 )
 
     def save(self, *args, **kwargs):

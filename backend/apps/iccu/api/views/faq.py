@@ -1,4 +1,4 @@
-from rest_framework import permissions, views
+from rest_framework import generics, permissions
 from rest_framework.response import Response
 
 from ...models import FAQ
@@ -7,9 +7,10 @@ from ..serializers import FAQSerializer
 __all__ = ("FAQView",)
 
 
-class FAQView(views.APIView):
+class FAQView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = FAQSerializer
 
     def get(self, request):
         faqs = FAQ.objects.filter(is_active=True)
-        return Response(FAQSerializer(faqs, many=True).data)
+        return Response(self.get_serializer(faqs, many=True).data)

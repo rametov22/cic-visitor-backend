@@ -1,4 +1,3 @@
-from decouple import config
 from django.apps import apps
 from django.conf import settings
 from django.conf.urls.i18n import i18n_patterns
@@ -42,7 +41,7 @@ urlpatterns += i18n_patterns(
 )
 
 
-if not config("PRODUCTION", cast=bool, default=True):
+if settings.ENVIRONMENT == "dev":
     from debug_toolbar.toolbar import debug_toolbar_urls
 
     urlpatterns += debug_toolbar_urls()

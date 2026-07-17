@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-__all__ = ("RuleCategory", "Rule")
+__all__ = ("Rule", "RuleCategory")
 
 
 class RuleCategory(models.Model):

@@ -1,10 +1,11 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from ...models import Complex, Place
 
 __all__ = (
-    "PlaceSerializer",
     "ComplexSerializer",
+    "PlaceSerializer",
 )
 
 
@@ -21,6 +22,7 @@ class ComplexSerializer(serializers.ModelSerializer):
         model = Complex
         fields = ["id", "title", "orienteer", "places"]
 
+    @extend_schema_field(PlaceSerializer(many=True))
     def get_places(self, obj):
         active_places = obj.places.filter(is_active=True)
         return PlaceSerializer(active_places, many=True, context=self.context).data

@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
 from modeltranslation.utils import build_localized_fieldname
 
 from .constants import Type
@@ -10,9 +11,7 @@ __all__ = ("TicketSource",)
 
 
 class TicketSource(models.Model):
-    type = models.CharField(
-        _("Тип"), max_length=10, choices=Type.choices, default=Type.LINK
-    )
+    type = models.CharField(_("Тип"), max_length=10, choices=Type.choices, default=Type.LINK)
     title = models.CharField(_("Заголовок"), max_length=255)
     # Для type=link
     link_label = models.CharField(_("Текст ссылки"), max_length=255, blank=True)
@@ -33,10 +32,7 @@ class TicketSource(models.Model):
     def clean(self):
         errors = {}
 
-        desc_fields = [
-            build_localized_fieldname("description", lang[0])
-            for lang in settings.LANGUAGES
-        ]
+        desc_fields = [build_localized_fieldname("description", lang[0]) for lang in settings.LANGUAGES]
         has_description = any(getattr(self, f, None) for f in desc_fields)
 
         if self.type == Type.LINK:
@@ -51,15 +47,11 @@ class TicketSource(models.Model):
 
         elif self.type == Type.INFO:
             if self.link_label:
-                errors["link_label"] = _(
-                    "Для типа «Информация» текст ссылки не заполняется."
-                )
+                errors["link_label"] = _("Для типа «Информация» текст ссылки не заполняется.")
             if self.link_url:
                 errors["link_url"] = _("Для типа «Информация» URL не заполняется.")
             if not has_description:
-                default_field = build_localized_fieldname(
-                    "description", settings.LANGUAGE_CODE[:2]
-                )
+                default_field = build_localized_fieldname("description", settings.LANGUAGE_CODE[:2])
                 errors[default_field] = _("Для типа «Инфо» описание обязательно.")
 
         if errors:

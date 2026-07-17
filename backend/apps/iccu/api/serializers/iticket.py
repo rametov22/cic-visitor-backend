@@ -6,7 +6,6 @@ __all__ = ("iTicketSerializer",)
 
 
 class iTicketSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = iTicket
         fields = ("id", "name", "url")

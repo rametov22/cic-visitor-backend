@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
+
 from modeltranslation.admin import TabbedTranslationAdmin, TranslationTabularInline
 
 from ..models import Rule, RuleCategory
@@ -24,6 +25,7 @@ class RuleCategoryAdmin(TabbedTranslationAdmin):
     def icon_preview(self, obj):
         if obj.icon:
             from django.utils.html import format_html
+
             return format_html('<img src="{}" height="30" />', obj.icon.url)
         return "-"
 

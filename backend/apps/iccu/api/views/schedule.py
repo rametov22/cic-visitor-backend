@@ -1,15 +1,18 @@
-from rest_framework import permissions, views
+from drf_spectacular.utils import extend_schema
+from rest_framework import generics, permissions
 from rest_framework.response import Response
 
 from ...models import Schedule
-from ..serializers import ScheduleDaySerializer
+from ..serializers import ScheduleDaySerializer, ScheduleListSerializer
 
 __all__ = ("ScheduleView",)
 
 
-class ScheduleView(views.APIView):
+class ScheduleView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = ScheduleDaySerializer
 
+    @extend_schema(responses=ScheduleListSerializer)
     def get(self, request):
         days = Schedule.objects.all()
         today = Schedule.today()

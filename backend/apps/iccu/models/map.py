@@ -48,9 +48,7 @@ class Place(models.Model):
         has_link = bool(self.link)
         has_coords = self.latitude is not None and self.longitude is not None
         if not has_link and not has_coords:
-            raise ValidationError(
-                _("Укажите ссылку на местоположение или координаты (широта и долгота).")
-            )
+            raise ValidationError(_("Укажите ссылку на местоположение или координаты (широта и долгота)."))
 
     def save(self, *args, **kwargs):
         self.full_clean()

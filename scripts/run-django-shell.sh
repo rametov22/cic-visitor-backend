@@ -1,6 +1,4 @@
-# Load environments from ../.env
-set -a
-source "$(dirname "$0")/../.env"
-set +a
+#!/usr/bin/env bash
+set -euo pipefail
 
 docker compose exec -it backend python manage.py shell -v 2

@@ -1,6 +1,7 @@
-import httpx
 from django.conf import settings
 from django.core.cache import cache
+
+import httpx
 
 __all__ = (
     "fetch_news",

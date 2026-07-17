@@ -9,9 +9,7 @@ __all__ = ("Schedule",)
 
 
 class Schedule(models.Model):
-    weekday = models.PositiveSmallIntegerField(
-        _("День недели"), choices=WeekDays.choices, unique=True
-    )
+    weekday = models.PositiveSmallIntegerField(_("День недели"), choices=WeekDays.choices, unique=True)
     is_working = models.BooleanField(_("Рабочий день"), default=True)
     force_closed = models.BooleanField(_("Временно закрыто"), default=False)
     open_time = models.TimeField(_("Открытие"), null=True, blank=True)
@@ -28,9 +26,7 @@ class Schedule(models.Model):
 
     def clean(self):
         if self.is_working and (not self.open_time or not self.close_time):
-            raise ValidationError(
-                _("Для рабочего дня укажите время открытия и закрытия.")
-            )
+            raise ValidationError(_("Для рабочего дня укажите время открытия и закрытия."))
 
     def save(self, *args, **kwargs):
         self.full_clean()

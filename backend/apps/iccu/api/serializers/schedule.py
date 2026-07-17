@@ -1,10 +1,10 @@
 from django.utils import timezone
-from django.utils.translation import gettext as _
+
 from rest_framework import serializers
 
 from ...models import Schedule
 
-__all__ = ("ScheduleDaySerializer",)
+__all__ = ("ScheduleDaySerializer", "ScheduleListSerializer")
 
 
 class ScheduleDaySerializer(serializers.ModelSerializer):
@@ -27,7 +27,7 @@ class ScheduleDaySerializer(serializers.ModelSerializer):
             "hours_display",
         ]
 
-    def get_is_today(self, obj):
+    def get_is_today(self, obj) -> bool:
         return obj.weekday == timezone.localtime().isoweekday()
 
 

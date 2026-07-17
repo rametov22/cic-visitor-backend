@@ -1,60 +1,81 @@
-name: Build & Deploy
+name: Deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Build and push backend image"]
+    types: [completed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [prod, dev]
+        default: prod
+      image_tag:
+        description: Image tag (latest or sha-<full-sha>)
+        default: latest
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'prod' }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: registry-test.glob.uz
   IMAGE_NAME: iccu/visitor-backend
 
 jobs:
-  build-and-push:
-    name: Build & Push Image
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (vars.AUTO_DEPLOY == 'true' &&
+      github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'prod' }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Resolve image and commit
+        id: release
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "tag=sha-${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.event.inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Login to registry
-        uses: docker/login-action@v3
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.REGISTRY_USER }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          fingerprint: ${{ secrets.SERVER_FINGERPRINT }}
+          envs: REGISTRY,REGISTRY_USER,REGISTRY_PASSWORD,PROJECT_PATH,IMAGE_NAME,IMAGE_TAG,DEPLOY_SHA
+          script: |
+            set -euo pipefail
+            cd "$PROJECT_PATH"
+            git fetch --all --prune
+            git reset --hard "$DEPLOY_SHA"
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: .docker/backend/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
-  # deploy:
-  #   name: Deploy to Server
-  #   needs: build-and-push
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Deploy via SSH
-  #       uses: appleboy/ssh-action@v1
-  #       with:
-  #         host: ${{ secrets.SERVER_HOST }}
-  #         username: ${{ secrets.SERVER_USER }}
-  #         key: ${{ secrets.SERVER_SSH_KEY }}
-  #         script: |
-  #           # Login to registry
-  #           echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USER }} --password-stdin
-
-  #           # Pull new image
-  #           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
-  #           # Go to project dir and restart
-  #           cd ${{ secrets.PROJECT_PATH }}
-  #           docker compose pull backend
-  #           docker compose up -d --no-build
-
-  #           # Cleanup old images
-  #           docker image prune -f
+            echo "$REGISTRY_PASSWORD" |
+              docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
+            export BACKEND_IMAGE="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml ps
+            docker logout "$REGISTRY"
+            docker image prune -f --filter "until=72h"
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+          PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          IMAGE_TAG: ${{ steps.release.outputs.tag }}
+          DEPLOY_SHA: ${{ steps.release.outputs.sha }}

@@ -1,48 +1,96 @@
-name: iccu-visitor
+name: ${PROJECT_NAME:-iccu-visitor}
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-backend-defaults: &backend-defaults
+  image: ${BACKEND_IMAGE:-registry-test.glob.uz/iccu/visitor-backend:latest}
+  pull_policy: always
+  env_file:
+    - ./.env
+  logging: *default-logging
+  volumes:
+    - django-static:/app/static
+    - django-media:/app/media
+  depends_on:
+    volume-init:
+      condition: service_completed_successfully
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
 
 services:
-  backend:
-    image: registry-test.glob.uz/iccu/visitor-backend:latest
-    env_file:
-      - .env
-    expose:
-      - 8000
+  volume-init:
+    image: ${BACKEND_IMAGE:-registry-test.glob.uz/iccu/visitor-backend:latest}
+    pull_policy: always
+    user: root
     volumes:
       - django-static:/app/static
       - django-media:/app/media
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    command: sh -c "mkdir -p /app/static /app/media && chown -R 1000:1000 /app/static /app/media"
+    restart: "no"
+
+  backend:
+    <<: *backend-defaults
+    expose:
+      - 8000
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/healthcheck/ || exit 1"]
       interval: 30s
       retries: 5
-      start_period: 5s
+      start_period: 60s
       timeout: 3s
     command: bash scripts/entrypoint.sh
-    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
 
-  db:
-    image: postgres:17.4
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    expose:
-      - 5432
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
+  celery:
+    <<: *backend-defaults
+    command: celery -A config worker --loglevel=INFO --concurrency=2 -Q celery
     healthcheck:
-      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'"]
-      interval: 3s
-      retries: 5
-      timeout: 3s
-    restart: unless-stopped
+      test: ["CMD-SHELL", "celery -A config inspect ping -d celery@$$HOSTNAME || exit 1"]
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      timeout: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
+
+  celery-beat:
+    <<: *backend-defaults
+    command: celery -A config beat --loglevel=INFO
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python -c "import glob,os,sys,time;
+          fs=glob.glob('/tmp/celerybeat-schedule*');
+          sys.exit(0 if fs and time.time()-max(os.path.getmtime(f) for f in fs) < 600 else 1)"
+      interval: 60s
+      retries: 3
+      start_period: 90s
+      timeout: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512m
 
   redis:
     image: redis:8
+    logging: *default-logging
+    command: redis-server --save 60 1 --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
     expose:
       - 6379
     volumes:
@@ -53,21 +101,84 @@ services:
       retries: 5
       timeout: 3s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 320m
+
+  db:
+    image: postgres:17.4
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    expose:
+      - 5432
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 3s
+      retries: 5
+      timeout: 3s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
+
+  db-backup:
+    image: ${DB_BACKUP_IMAGE:-ghcr.io/tiredofit/docker-db-backup:4.1.100}
+    profiles: ["backup"]
+    logging: *default-logging
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB01_TYPE: pgsql
+      DB01_HOST: db
+      DB01_PORT: "5432"
+      DB01_NAME: ${POSTGRES_DB}
+      DB01_USER: ${POSTGRES_USER}
+      DB01_PASS: ${POSTGRES_PASSWORD}
+      DB01_BACKUP_INTERVAL: ${DB_BACKUP_INTERVAL:-1440}
+      DB01_CLEANUP_TIME: ${DB_BACKUP_CLEANUP_TIME:-10080}
+      DB01_COMPRESSION: ${DB_BACKUP_COMPRESSION:-ZSTD}
+      DB01_BACKUP_LOCATION: FILESYSTEM
+      DB01_FILESYSTEM_PATH: /backup
+    volumes:
+      - ${DB_BACKUP_FS_PATH:-./db-backups}:/backup
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
 
   nginx:
     image: nginx:stable-alpine
+    logging: *default-logging
     ports:
-      - "30311:80"
+      - "${APP_PORT:-30311}:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - django-static:/var/www/static
-      - django-media:/var/www/media
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - django-static:/var/www/static:ro
+      - django-media:/var/www/media:ro
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128m
 
 volumes:
   postgres-data:
-  django-static:
   redis-data:
+  django-static:
   django-media:

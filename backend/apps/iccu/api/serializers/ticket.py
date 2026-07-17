@@ -6,7 +6,6 @@ __all__ = ("TicketSourceSerializer",)
 
 
 class TicketSourceSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = TicketSource
         fields = [

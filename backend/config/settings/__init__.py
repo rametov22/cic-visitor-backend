@@ -1,22 +1,10 @@
-from decouple import config
+import os
 
-from .auth import *
+if os.environ.get("DJANGO_SETTINGS_MODULE", "").endswith(".test"):
+    os.environ.setdefault("ENVIRONMENT", "test")
+
 from .base import *
-from .database import *
-from .installed_apps import *
-from .localization import *
-from .middleware import *
-from .news_api import *
-from .rest_framework import *
-from .rosetta import *
-from .settings import *
+from .third_party import *
 
-# from .storages import *
-from .templates import *
-
-if not config("PRODUCTION", cast=bool, default=True):
-    from .debug_toolbar import *
-
-    print("🔥 Debug toolbar enabled")
-else:
-    print("⚠️ Debug toolbar disabled")
+if ENVIRONMENT == "dev":
+    from .dev import *

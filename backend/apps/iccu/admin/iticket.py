@@ -36,9 +36,7 @@ class iTicketAdmin(admin.ModelAdmin):
     @admin.action(description="Activate selected ticket")
     def make_active(self, request, queryset):
         if queryset.count() != 1:
-            self.message_user(
-                request, "Select exactly one ticket to activate.", level="error"
-            )
+            self.message_user(request, "Select exactly one ticket to activate.", level="error")
             return
         iTicket.objects.filter(is_active=True).update(is_active=False)
         queryset.update(is_active=True)
