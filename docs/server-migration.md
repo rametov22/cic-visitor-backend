@@ -70,6 +70,7 @@ DJANGO_SECRET_KEY=<тот же ключ, что на старом сервере
 DJANGO_ALLOWED_HOSTS=<production-domain>
 DJANGO_CSRF_TRUSTED_ORIGINS=https://<production-domain>
 DJANGO_CORS_ALLOWED_ORIGINS=https://<frontend-domain>
+DEEP_HEALTH_API_KEY=<output of openssl rand -hex 32>
 ```
 
 Указать новые PostgreSQL credentials. База должна быть недоступна извне; наружу
@@ -101,6 +102,9 @@ docker compose -f docker-compose.prod.yml exec backend \
 docker compose -f docker-compose.prod.yml exec backend \
   python manage.py check --deploy
 curl -fsS http://127.0.0.1:${APP_PORT}/healthcheck/
+KEY='<same value as DEEP_HEALTH_API_KEY in .env>'
+curl -sS -H "X-API-Key: ${KEY}" https://api.visitor.iccu.uz/deep-health/
+unset KEY
 ```
 
 Проверить вход в админку, количество записей, расписание, rules/FAQ/map API и

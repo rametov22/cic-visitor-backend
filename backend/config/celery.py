@@ -24,4 +24,5 @@ app.conf.broker_connection_retry = True
 app.conf.broker_connection_timeout = 4.0
 app.conf.broker_heartbeat = 10
 app.conf.beat_schedule_filename = "/tmp/celerybeat-schedule"
+app.conf.beat_max_loop_interval = 60
 app.autodiscover_tasks()

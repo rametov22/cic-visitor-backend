@@ -60,6 +60,29 @@ Production runs behind an external edge proxy that terminates TLS and sets
 `X-Forwarded-Proto`. The in-stack Nginx deliberately does not overwrite that
 header.
 
+## Health checks
+
+`/healthcheck/` remains the shallow Docker healthcheck. `/deep-health/` is the
+protected monitoring endpoint and concurrently checks `backend`, `db`, `redis`,
+`celery` and `celery-beat`. Configure a separate random key in `.env`:
+
+```dotenv
+DEEP_HEALTH_API_KEY=<output of openssl rand -hex 32>
+```
+
+Call it through HTTPS in production:
+
+```bash
+KEY='<same value as DEEP_HEALTH_API_KEY in .env>'
+curl -sS -H "X-API-Key: ${KEY}" https://api.visitor.iccu.uz/deep-health/
+unset KEY
+```
+
+Missing or invalid credentials return HTTP 401. An authorized request always
+returns HTTP 200; health is carried by the JSON `status` fields. Celery beat
+writes a shared Redis heartbeat, so its liveness is checked independently from
+the worker.
+
 See [docs/server-migration.md](docs/server-migration.md) for the staged database
 and media migration runbook.
 

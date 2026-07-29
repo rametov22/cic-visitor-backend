@@ -71,7 +71,9 @@ services:
 
   celery-beat:
     <<: *backend-defaults
-    command: celery -A config beat --loglevel=INFO
+    command: >-
+      celery -A config beat --loglevel=INFO
+      --scheduler=common.deep_health.scheduler:HeartbeatScheduler
     healthcheck:
       test:
         - CMD-SHELL
