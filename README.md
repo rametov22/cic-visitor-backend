@@ -93,3 +93,7 @@ Environment (`prod`/`dev`) also needs `SERVER_HOST`, `SERVER_USER`,
 `SERVER_PORT`, `SERVER_SSH_KEY`, `SERVER_FINGERPRINT` and `PROJECT_PATH`.
 Set the repository variable `AUTO_DEPLOY=true` only after a manual deployment
 has succeeded; otherwise deployment remains manual.
+
+Pushes to `refactor/django-template` publish both an immutable `sha-<full-sha>`
+tag and the moving `refactor-django-template` tag. The server uses the moving
+tag for routine `make prod deploy`; keep SHA tags for an exact rollback.

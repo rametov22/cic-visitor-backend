@@ -2,7 +2,7 @@ name: Build and push backend image
 
 on:
   push:
-    branches: [main]
+    branches: [main, refactor/django-template]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -50,6 +50,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=refactor-django-template,enable=${{ github.ref == 'refs/heads/refactor/django-template' }}
             type=sha,format=long
             type=ref,event=tag
             type=semver,pattern={{version}}
